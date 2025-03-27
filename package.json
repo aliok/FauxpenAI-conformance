@@ -1,0 +1,42 @@
+{
+  "name": "fauxpenai-conformance",
+  "version": "0.0.0-dev",
+  "description": "The FauxpenAI Conformance tool is designed to build, run, and record scenarios to test the compatibility of custom API servers with OpenAI's API.",
+  "keywords": [
+    "openai",
+    "api",
+    "conformance"
+  ],
+  "author": "Ali Ok",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/aliok/fauxpenai-conformance",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aliok/fauxpenai-conformance.git"
+  },
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "bin": {
+    "fauxpenai-conformance": "dist/index.js"
+  },
+  "scripts": {
+    "build": "npm run clean && npm run compile && npm run lint",
+    "start": "npm run build && node dist/index.js",
+    "test": "npm run build && mocha './src/**/*.test.ts' --recursive",
+    "clean": "rimraf ./dist",
+    "compile": "tsc",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "openai": "^4.87.3",
+    "yargs": "^17.7.2"
+  },
+  "devDependencies": {
+    "@tsconfig/node16": "^16.1.3",
+    "@types/node": "^22.13.10",
+    "@types/yargs": "^17.0.33",
+    "typescript": "^5.8.2"
+  }
+}
