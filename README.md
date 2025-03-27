@@ -47,15 +47,49 @@ fauxpenai-conformance compareResults --api=embeddings --level=1  --resultsFile=/
 ## Commands and options
 
 #### createScenarios
+
 ```shell
-fauxpenai-conformance createScenarios
-# TODO
+Usage: fauxpenai-conformance createScenarios [options]
+
+Options:
+  --help        Show help  [boolean]
+  --version     Show version number  [boolean]
+  --api         API to create scenarios for.  [string] [required] [choices: "chatcompletions", "embeddings"]
+  --outputFile  Path to the output scenarios file.  [string] [required]
+
+Examples:
+  fauxpenai-conformance createScenarios --api=chatcompletions --outputFile=./scenarios.json  Create scenarios for the OpenAI Chat Completions API and save them to ./scenarios.json
 ```
 
 #### runScenarios
+
 ```shell
-fauxpenai-conformance runScenarios
-# TODO
+
+            Usage: fauxpenai-conformance runScenarios [options]
+
+            fauxpenai-conformance executes scenarios against the OpenAI API.
+
+            It stops in any of these cases:
+             - All scenarios are executed
+             - There is a rate limit error
+             - There are scenarios that are not done, but the max number of trials is reached.
+
+             OpenAI API key is required. It should be set in the environment variable OPENAI_API_KEY.
+
+Options:
+  --help           Show help  [boolean]
+  --version        Show version number  [boolean]
+  --api            API to create scenarios for.  [string] [required] [choices: "chatcompletions", "embeddings"]
+  --scenariosFile  Path to the scenarios file. Any scenarios not existing in the resultsFile will be added to the resultsFile.  [string] [required]
+  --resultsFile    Path to the results gzip file. If the file doesn't exist, it will be created from the content of the scenarios file. If exists, scenarios in the file will be executed. This allows to resume the execution of scenarios that are not done yet.
+                   The file is gzipped as the results can be large.  [string] [required]
+  --baseUrl        Base URL for the API server  [string] [default: "https://api.openai.com/v1"]
+  --rateLimit      Rate limit in requests per second.  [number] [default: 0.3]
+  --maxTrials      Max trials for each scenario. A scenario will be retried in case of a network/IO failure or a server side 5xx error.  [number] [default: 3]
+  --passes         Number of passes to run until the finish condition is reached. This number should be larger than the number of maxTrials.  [number] [default: 5]
+
+Examples:
+  fauxpenai-conformance runScenarios --api=chatcompletions --scenariosFile=./scenarios.json --resultsFile=./results.json.gz  Run scenarios for the OpenAI Chat Completions API and save the results to ./results.json.gz
 ```
 
 ## Contributing
