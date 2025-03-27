@@ -40,7 +40,7 @@ fauxpenai-conformance runScenarios --api=embeddings --baseUrl="https://your-serv
 2. **Compare Results**: After running the tests, the tool compares the results from OpenAI and your custom API server.
   You are going to need the data from the [FauxpenAI Spec repository](https://github.com/aliok/FauxpenAI-spec).
 ```shell
-fauxpenai-conformance compareResults --api=embeddings --level=1  --resultsFile=/path/to/data/embeddings/results.json.gz --openaiResultsFile=/path/to/data/embeddings/openai-results.json.gz 
+fauxpenai-conformance compareResults --api=embeddings --level=1  --specFile=/path/to/data/embeddings/results.json.gz --resultsFile=/path/to/data/embeddings/openai-results.json.gz 
 ```
 
 
@@ -102,12 +102,12 @@ We welcome contributions to improve the tool. If you have additional features or
 # create embeddings scenarios
 fauxpenai-conformance createScenarios --api=embeddings --outputFile=/path/to/data/embeddings/scenarios.json
 # or from source, e.g.
-# ts-node src/main/main.ts createScenarios --api=embeddings --outputFile=/Users/aliok/go/src/github.com/aliok/FauxpenAI-spec/embeddings/scenarios.json
+# ts-node src/index.ts createScenarios --api=embeddings --outputFile=/Users/aliok/go/src/github.com/aliok/FauxpenAI-spec/embeddings/scenarios.json
 
 # create chatcompletions scenarios
 fauxpenai-conformance createScenarios --api=chatcompletions --outputFile=/path/to/data/chatcompletions/scenarios.json
 # or from source, e.g.
-# ts-node src/main/main.ts createScenarios --api=chatcompletions --outputFile=/Users/aliok/go/src/github.com/aliok/FauxpenAI-spec/chatcompletions/scenarios.json
+# ts-node src/index.ts createScenarios --api=chatcompletions --outputFile=/Users/aliok/go/src/github.com/aliok/FauxpenAI-spec/chatcompletions/scenarios.json
 ```
 
 2. **Run Scenarios**: Execute the scenarios against OpenAI's API.
@@ -118,12 +118,12 @@ export OPENAI_API_KEY="<your_openai_api_key>"
 # run embeddings scenarios
 fauxpenai-conformance runScenarios --api=embeddings --scenariosFile=/path/to/data/embeddings/scenarios.json --resultsFile=/path/to/data/embeddings/results.json.gz
 # or from source, e.g.
-# ts-node src/main/main.ts runScenarios --api=embeddings --scenariosFile=/Users/aliok/go/src/github.com/aliok/FauxpenAI-spec/embeddings/scenarios.json --resultsFile=/Users/aliok/go/src/github.com/aliok/FauxpenAI-spec/embeddings/results.json.gz
+# ts-node src/index.ts runScenarios --api=embeddings --scenariosFile=/Users/aliok/go/src/github.com/aliok/FauxpenAI-spec/embeddings/scenarios.json --resultsFile=/Users/aliok/go/src/github.com/aliok/FauxpenAI-spec/embeddings/results.json.gz
 
 # run chatcompletions scenarios
 fauxpenai-conformance runScenarios --api=chatcompletions --scenariosFile=/path/to/data/chatcompletions/scenarios.json --resultsFile=/path/to/data/chatcompletions/results.json.gz
 # or from source, e.g.
-# ts-node src/main/main.ts runScenarios --api=chatcompletions --scenariosFile=/Users/aliok/go/src/github.com/aliok/FauxpenAI-spec/chatcompletions/scenarios.json --resultsFile=/Users/aliok/go/src/github.com/aliok/FauxpenAI-spec/chatcompletions/results.json.gz
+# ts-node src/index.ts runScenarios --api=chatcompletions --scenariosFile=/Users/aliok/go/src/github.com/aliok/FauxpenAI-spec/chatcompletions/scenarios.json --resultsFile=/Users/aliok/go/src/github.com/aliok/FauxpenAI-spec/chatcompletions/results.json.gz
 ```
 
 

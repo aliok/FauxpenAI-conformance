@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/setup-node@v3
         with:
-          node-version: '23.1.0'
+          node-version: '18.18.2'
 
       - uses: actions/checkout@v4
 

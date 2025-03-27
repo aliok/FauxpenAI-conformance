@@ -1,19 +1,9 @@
-import fs from "node:fs";
-import OpenAI from "openai";
 import yargs from "yargs";
-import zlib from "zlib";
-import {sanitizeResponseBody as chatCompletionsRespSanitize} from "../apis/chatcompletions/sanitize";
-import {scenarios as chatCompletionScenarios} from "../apis/chatcompletions/scenarios";
-import {sanitizeResponseBody as embeddingsRespSanitize} from "../apis/embeddings/sanitize";
-import {scenarios as embeddingsScenarios} from "../apis/embeddings/scenarios";
-import {Result} from "../lib/result";
-import {buildGroupCounts, Scenario, writeScenarios} from "../lib/scenario";
-import {ScenarioRunner} from "../lib/scenarioRunner";
-import {escapeCSVValue} from "../lib/util";
-import {sanitizeResponseHeaders} from "./sanitize";
-
-const API_CHAT_COMPLETIONS = "chatcompletions";
-const API_EMBEDDINGS = "embeddings";
+import {compareResults} from "./compareResultsCmd";
+import {createScenarios} from "./createScenariosCmd";
+import {report} from "./reportCmd";
+import {runScenarios} from "./runScenariosCmd";
+import {API_CHAT_COMPLETIONS, API_EMBEDDINGS} from "./vars";
 
 export async function main() {
     let y = yargs(process.argv.slice(2))
@@ -144,272 +134,53 @@ export async function main() {
         await report(argv.resultsFile as string);
     });
 
+    y = y.command("compareResults", "Compare the results of the scenarios for 2 runs", (subcmd) => {
+        subcmd.usage(`
+            Usage: $0 compareResults [options].
+        
+            $0 compareResults compares the results of 2 runs. It prints a CSV content to stdout which can be used to create a report.
+        `)
+            .option("specFile", {
+                type: "string",
+                demandOption: true,
+                description: "Path to the first results gzip file.",
+            })
+            .option("resultsFile", {
+                type: "string",
+                demandOption: true,
+                description: "Path to the second results gzip file.",
+            })
+            .option("api", {
+                type: "string",
+                choices: [API_CHAT_COMPLETIONS, API_EMBEDDINGS],
+                demandOption: false,
+                description: "API to compare scenarios for. Only required if the comparison methods requires it",
+            })
+            .option("methods", {
+                type: "array",
+                demandOption: true,
+                // TODO: explain methods
+                description: "Methods to use for the comparison. Currently only 'base' is supported.",
+            })
+            .option("verbose", {
+                type: "boolean",
+                default: false,
+                description: "Verbose output with the keys of the scenarios that are different and the differences.",
+            });
+    }, async (argv) => {
+        console.log(`Going to compare the results from ${argv.specFile} and ${argv.resultsFile}`);
+        console.log(`API: ${argv.api}`);
+        console.log(`Methods: ${argv.methods}`);
+        console.log(`Verbose: ${argv.verbose}`);
+
+        await compareResults(
+            argv.specFile as string,
+            argv.resultsFile as string,
+            argv.api as string,
+            argv.methods as string[],
+            argv.verbose as boolean,
+        );
+    })
+
     await y.parse();
-}
-
-async function createScenarios(api:string, outputFile:string) {
-    let scenarios:Scenario<any>[] = [];
-
-    switch (api) {
-        case API_CHAT_COMPLETIONS:
-            scenarios = await chatCompletionScenarios();
-            break;
-        case API_EMBEDDINGS:
-            scenarios = await embeddingsScenarios();
-            break;
-        default:
-            throw new Error(`Unknown API: ${api}`);
-    }
-
-    const groups = buildGroupCounts(scenarios);
-    console.log(`Total test scenarios: ${scenarios.length}`);
-    console.log("Scenario groups:");
-    for (const [group, count] of groups) {
-        console.log(` - ${group}: ${count}`);
-    }
-
-    writeScenarios(outputFile, scenarios);
-}
-
-async function runScenarios(apiKey:string, api:string, scenariosFile:string, resultsFile:string, baseUrl:string, rateLimit:number, maxTrials:number, passes:number) {
-    let url = "";
-    let method = "POST";
-    let responseHeaderSanitizer = sanitizeResponseHeaders;
-    let responseBodySanitizer = function (body:any) {
-    };
-
-    switch (api) {
-        case API_CHAT_COMPLETIONS:
-            url = `${baseUrl}/chat/completions`;
-            responseBodySanitizer = chatCompletionsRespSanitize;
-            break;
-        case API_EMBEDDINGS:
-            url = `${baseUrl}/embeddings`;
-            responseBodySanitizer = embeddingsRespSanitize;
-            break;
-        default:
-            throw new Error(`Unknown API: ${api}`);
-    }
-
-    // first read the results file
-    // if it doesn't exist, create it, with the exact content of scenarios.json
-    // then, for each test case in the results file that's not executed, execute it
-    // after every execution, write the results to the file, without waiting for all the test cases to finish
-
-    let results:Record<string, Result<any>> = readResultsFile(resultsFile);
-    console.log(`Loaded ${Object.keys(results).length} results from file.`);
-
-    // insert missing scenarios into the result s file
-    let scenarios:Record<string, Scenario<any>> = readScenariosFile(scenariosFile);
-    for (const [key, scenario] of Object.entries(scenarios)) {
-        if (!results[key]) {
-            results[key] = new Result(scenario, null as any);
-        }
-    }
-
-    registerGracefulExit(function () {
-        writeResultsFile(resultsFile, results);
-    });
-
-    // /////////////////////////////////////////////////////////////////
-    // /////////////////////////////////////////////////////////////////
-    // // TODO: remove this
-    // let resultsArray = Object.values(results);
-    // let testIndex = 0;
-    // // find an entry with stream=true
-    // for (let i = 1; i < resultsArray.length; i++) {
-    //     // let go = resultsArray[i].scenario.requestBody.stream && resultsArray[i].scenario.requestBody.stream_options && resultsArray[i].scenario.requestBody.stream_options?.include_usage;
-    //     // if (go) {
-    //     //     testIndex = i;
-    //     //     console.log(`Found streaming test case at index ${testIndex}`);
-    //     //     break;
-    //     // }
-    //     testIndex = i;
-    //     break
-    // }
-    // resultsArray = [resultsArray[testIndex]];
-    // /////////////////////////////////////////////////////////////////
-    // /////////////////////////////////////////////////////////////////
-
-
-    let resultsArray = Object.values(results);
-    let runner = new ScenarioRunner(resultsArray, {
-        url,
-        method,
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-        },
-        rateLimit: rateLimit,     // 3 requests every 10 seconds
-        onProgress: (completed, total) => {
-            console.log(`Completed ${completed} of ${total} scenarios`);
-        },
-        onError: (error, scenarioKey) => {
-            console.error(`Error in scenario ${scenarioKey}:`, error);
-        },
-        maxTrials: maxTrials,
-        responseHeaderSanitizer,
-        responseBodySanitizer,
-    });
-
-    // TODO: run for N times, until there's nothing to run
-    // TODO: think about runner.stopped though
-    for (let i = 0; i < passes; i++) {
-        console.log(`Iteration ${i + 1} of ${passes}`);
-        // TODO: check if there are any scenarios to run
-        if (runner.isStopped()) {
-            console.log("Runner is stopped. Exiting.");
-            break;
-        }
-        await runner.run();
-    }
-
-    console.log("All scenarios executed");
-    console.log("Writing results to file...");
-    writeResultsFile(resultsFile, results);
-}
-
-async function report(resultsFile:string) {
-    let results:Record<string, Result<any>> = readResultsFile(resultsFile);
-    console.log(`Loaded ${Object.keys(results).length} results from file.`);
-
-    let resultsArray = Object.values(results);
-    let csv = "Scenario,Group,Status,NonTerminalLatestError,Spec\n";
-    for (const result of resultsArray) {
-        let status = "";
-        let error = "";
-
-        if (result.response === null && (result.errors === null || result.errors.length === 0)) {
-            status = "Not executed";
-        } else if (result.response !== null) {
-            status = "" + result.response.status;
-        }
-
-        if (result.response === null && result.errors && result.errors.length > 0) {
-            let latestError = result.errors[result.errors.length - 1];
-            status = "" + latestError.statusCode;
-            error = JSON.stringify(latestError.message);
-        }
-
-        let spec = result.scenario.spec.factors.map(p => (p as any).name).join(", ");
-
-        csv += `${escapeCSVValue(result.scenario.key)},${escapeCSVValue(result.scenario.spec.group)},${escapeCSVValue(status)},${escapeCSVValue(error)},${escapeCSVValue(spec)}\n`;
-
-    }
-    console.log("CSV report:");
-    console.log(csv);
-}
-
-
-function readResultsFile(filePath:string):Record<string, Result<any>> {
-    if (isEmptyFile(filePath)) {
-        // we can ignore the error, and start the tests from scratch
-        console.info(`Results file ${filePath} does not exist or is empty. Starting from scratch.`);
-        return {};
-    }
-
-    return readFile(filePath, true) as Record<string, Result<any>>;
-}
-
-function readScenariosFile(filePath:string) {
-    if (isEmptyFile(filePath)) {
-        throw new Error(`Scenarios file ${filePath} does not exist or is empty.`);
-    }
-
-    return readFile(filePath, false) as Record<string, Scenario<any>>;
-}
-
-function isEmptyFile(filePath:string) {
-    // Check if the file exists
-    if (!fs.existsSync(filePath)) {
-        return true
-    }
-
-    // check if the file is empty
-    return fs.statSync(filePath).size === 0;
-}
-
-function readFile(filePath:string, gzip:boolean):any {
-    // Check if the file is readable/writable
-    try {
-        fs.accessSync(filePath, fs.constants.R_OK | fs.constants.W_OK);
-    } catch (err) {
-        // this is a critical error. we can't ignore and start the tests from scratch.
-        console.error(`File ${filePath} is not readable or writable.`);
-        throw new Error(`File ${filePath} is not readable or writable.`);
-    }
-
-    // Read the file
-    let data:string;
-    try {
-        if (gzip) {
-            const compressedData = fs.readFileSync(filePath);
-            data = zlib.gunzipSync(compressedData).toString("utf-8");
-        } else {
-            data = fs.readFileSync(filePath, "utf-8");
-        }
-    } catch (err) {
-        // this is a critical error. we can't ignore and start the tests from scratch.
-        console.error(`Error reading file ${filePath}: ${err}`);
-        throw new Error(`Error reading file ${filePath}: ${err}`);
-    }
-
-    // Parse the JSON data
-    let theMap:Record<string, Result<any>>;
-    try {
-        theMap = JSON.parse(data) as Record<string, Result<any>>;
-    } catch (err) {
-        console.error(`Error parsing JSON data from file ${filePath}: ${err}`);
-        throw new Error(`Error parsing JSON data from file ${filePath}: ${err}`);
-    }
-
-    return theMap;
-}
-
-function writeResultsFile(filePath:string, results:Record<string, Result<OpenAI.ChatCompletionCreateParams>>) {
-    console.log(`Writing results to ${filePath}...`);
-
-    // sort the test cases by key
-    const sortedKeys = Object.keys(results).sort();
-    const sortedResults:Record<string, Result<OpenAI.Chat.ChatCompletionCreateParams>> = {};
-    for (const key of sortedKeys) {
-        sortedResults[key] = results[key];
-    }
-
-    try {
-        const jsonString = JSON.stringify(sortedResults, null, 2);
-        const compressedData = zlib.gzipSync(jsonString);
-        fs.writeFileSync(filePath, compressedData);
-        console.log(`File successfully written as Gzip: ${filePath}`);
-    } catch (err) {
-        console.error(`Error writing Gzip file ${filePath}: ${err}`);
-        throw new Error(`Error writing Gzip file ${filePath}: ${err}`);
-    }
-}
-
-function registerGracefulExit(callback:() => void) {
-    let logAndExit = function () {
-        console.log("Exiting");
-        callback();
-        process.exit();
-    };
-
-    // handle graceful exit
-    //do something when app is closing
-    // process.on('exit', logAndExit);
-    //catches ctrl+c event
-    process.on('SIGINT', logAndExit);
-    process.on('SIGTERM', logAndExit);
-    // catches "kill pid" (for example: nodemon restart)
-    process.on('SIGUSR1', logAndExit);
-    process.on('SIGUSR2', logAndExit);
-
-    process.on('unhandledRejection', (reason, p) => {
-        console.error(reason, 'Unhandled Rejection at Promise', p);
-        logAndExit();
-    });
-    process.on('uncaughtException', err => {
-        console.error(err, 'Uncaught Exception thrown');
-        logAndExit();
-    });
 }
