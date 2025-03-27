@@ -91,3 +91,26 @@ fauxpenai-conformance runScenarios --api=chatcompletions --scenariosFile=/path/t
 # or from source, e.g.
 # ts-node src/main/main.ts runScenarios --api=chatcompletions --scenariosFile=/Users/aliok/go/src/github.com/aliok/FauxpenAI-spec/chatcompletions/scenarios.json --resultsFile=/Users/aliok/go/src/github.com/aliok/FauxpenAI-spec/chatcompletions/results.json.gz
 ```
+
+
+# Development
+
+## Creating a new release
+
+```shell
+# update the version in package.json to something like "0.0.6"
+npm install
+git add .
+git commit -m "Release 0.0.6"
+git tag -a "0.0.6" -m "Release 0.0.6"
+git push --follow-tags
+
+# create a new release on GitHub
+gh release create
+
+# update the version in package.json to something like "0.0.7-dev"
+npm install
+git add .
+git commit -m "Start 0.0.7-dev"
+git push
+```
