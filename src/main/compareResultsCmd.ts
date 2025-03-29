@@ -147,21 +147,31 @@ export async function compareResults(left:string, right:string, api:string, meth
             }
 
             const rightResult = rightResults[key];
-            const diffs = compare(api, leftResult, rightResult);
+            let diffs = compare(api, leftResult, rightResult);
+
+            diffs = filterOutIgnoredDiffs(diffs, leftResult.scenario.spec);
 
             comparisonResults[key] = comparisonResults[key] || {};
             comparisonResults[key][method] = {key, method, diffs};
 
-            if (!matchCounts[method]) matchCounts[method] = 0;
-            if (diffs.length === 0) matchCounts[method]++; // No diffs = perfect match
+            if (!matchCounts[method]) {
+                matchCounts[method] = 0;
+            }
+            if (diffs.length === 0) {
+                matchCounts[method]++; // No diffs = perfect match
+            }
 
             // Group diffs for summary
             for (const diff of diffs) {
                 const category = diff.text; // "Status Code", "Body", etc.
                 const change = `${diff.left} → ${diff.right}`;
 
-                if (!groupedDiffs[category]) groupedDiffs[category] = {};
-                if (!groupedDiffs[category][change]) groupedDiffs[category][change] = 0;
+                if (!groupedDiffs[category]) {
+                    groupedDiffs[category] = {};
+                }
+                if (!groupedDiffs[category][change]) {
+                    groupedDiffs[category][change] = 0;
+                }
 
                 groupedDiffs[category][change]++;
             }
@@ -281,3 +291,25 @@ function diffJSONStructures(json1:any, json2:any):Diff[] {
 function specName(factorSet:FactorSet):string {
     return factorSet.factors.map(p => (p as any).name).join(", ");
 }
+
+function filterOutIgnoredDiffs(diffs:Diff[], spec:FactorSet) {
+    const out:Diff[] = []
+
+    for (const diff of diffs) {
+        if (!isIgnored(diff, spec)) {
+            out.push(diff);
+        }
+    }
+
+    return out;
+}
+
+function isIgnored(diff:Diff, spec:FactorSet) {
+    // TODO:
+    if (diff.message === "Left response body: {\"error\":{\"message\":\"Unrecognized request argument supplied: reasoning_effort\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":null},\"created\":1234567890,\"service_tier\":\"default\"}") {
+        return true;
+    }
+
+    return false;
+}
+
