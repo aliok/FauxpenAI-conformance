@@ -305,8 +305,18 @@ function filterOutIgnoredDiffs(diffs:Diff[], spec:FactorSet) {
 }
 
 function isIgnored(diff:Diff, spec:FactorSet) {
-    // TODO:
+    // TODO: reasoning stuff is not in the OpenAPI spec yet
     if (diff.message === "Left response body: {\"error\":{\"message\":\"Unrecognized request argument supplied: reasoning_effort\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":null},\"created\":1234567890,\"service_tier\":\"default\"}") {
+        return true;
+    }
+
+    // TODO: reasoning stuff is not in the OpenAPI spec yet
+    if (diff.text === "Response body field 'choices[].message.annotations' only exists in left") {
+        return true;
+    }
+
+    // TODO: OpenAI allows blank `stop` values, but FauxpenAI doesn't
+    if (diff.message?.startsWith('Right response body: {"error":{"message":"Error at \\"/stop\\": value must be a string')){
         return true;
     }
 
