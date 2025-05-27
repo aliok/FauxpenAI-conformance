@@ -15,7 +15,7 @@
 
     "experimentalDecorators": true,                     /* Enables experimental support for decorators. */
 
-    "module": "CommonJS"
+    "module": "Node16"
   },
   "exclude": [
     "node_modules",
